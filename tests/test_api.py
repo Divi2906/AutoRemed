@@ -1,6 +1,6 @@
 
 import unittest
-
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from api import app
 
@@ -94,7 +94,55 @@ class TestAutoRemedAPI(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 422)
+        
+    @patch("api.get_system_metrics")
+    def test_monitor_endpoint_success(self, mock_metrics):
+        mock_metrics.return_value = {
+            "cpu": 40,
+            "memory": 50,
+            "disk": 60
+        }
 
+        response = client.post("/api/v1/monitor")
+
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["service"], "local-windows-system")
+        self.assertEqual(data["incident_count"], 0)
+        self.assertEqual(data["incidents"], [])
+
+    @patch("api.get_system_metrics")
+    def test_monitor_endpoint_detects_incidents(self, mock_metrics):
+        mock_metrics.return_value = {
+            "cpu": 96,
+            "memory": 50,
+            "disk": 40
+        }
+
+        response = client.post("/api/v1/monitor")
+
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+
+        self.assertEqual(data["incident_count"], 1)
+        self.assertEqual(data["incidents"][0]["type"], "HIGH CPU USAGE")
+        self.assertEqual(data["incidents"][0]["actual_value"], 96)
+
+    @patch("api.get_system_metrics")
+    def test_monitor_endpoint_invalid_metrics(self, mock_metrics):
+        mock_metrics.return_value = {
+            "cpu": 150,
+            "memory": 50,
+            "disk": 40
+        }
+
+        response = client.post("/api/v1/monitor")
+
+        self.assertEqual(response.status_code, 422)
 
 if __name__ == "__main__":
     unittest.main()
