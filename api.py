@@ -1,5 +1,4 @@
 
-
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -8,6 +7,7 @@ from pydantic import BaseModel, Field
 from main import detect_incidents
 from validators import validate_metrics
 from incident_details import build_incident_details
+from system_monitor import get_system_metrics
 
 app = FastAPI(
     title="AutoRemed API",
@@ -19,6 +19,30 @@ app = FastAPI(
 class DetectionRequest(BaseModel):
     service: str = Field(min_length=1)
     metrics: dict[str, Any]
+
+
+def process_metrics(service: str, metrics: dict):
+    """Validate metrics and generate structured incident results."""
+
+    validated_metrics = validate_metrics(metrics)
+
+    incidents = detect_incidents(
+        validated_metrics["cpu"],
+        validated_metrics["memory"],
+        validated_metrics["disk"]
+    )
+
+    incident_details = build_incident_details(
+        validated_metrics,
+        incidents
+    )
+
+    return {
+        "status": "success",
+        "service": service,
+        "incidents": incident_details,
+        "incident_count": len(incident_details)
+    }
 
 
 @app.get("/")
@@ -40,29 +64,29 @@ def health_check():
 @app.post("/api/v1/detect")
 def detect(request: DetectionRequest):
     try:
-        # Step 1: Validate incoming metrics
-        metrics = validate_metrics(request.metrics)
-
-        # Step 2: Detect all incidents
-        incidents = detect_incidents(
-            metrics["cpu"],
-            metrics["memory"],
-            metrics["disk"]
+        return process_metrics(
+            request.service,
+            request.metrics
         )
 
-        # Step 3: Generate structured incident details
-        incident_details = build_incident_details(
-            metrics,
-            incidents
+    except ValueError as error:
+        raise HTTPException(
+            status_code=422,
+            detail=str(error)
         )
 
-        # Step 4: Return API response
-        return {
-            "status": "success",
-            "service": request.service,
-            "incidents": incident_details,
-            "incident_count": len(incident_details)
-        }
+
+@app.post("/api/v1/monitor")
+def monitor():
+    try:
+        # Collect actual system metrics
+        metrics = get_system_metrics()
+
+        # Process and detect incidents
+        return process_metrics(
+            "local-windows-system",
+            metrics
+        )
 
     except ValueError as error:
         raise HTTPException(
