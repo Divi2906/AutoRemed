@@ -111,3 +111,57 @@ def test_unsupported_execution_action():
     result = execute_remediation(approval_request)
 
     assert result["execution_status"] == "failed"
+
+
+from remediation.action_logs import create_action_log, save_action_log
+
+
+def test_create_action_log():
+
+    incident = {
+        "type": "HIGH CPU USAGE",
+        "metric": "cpu",
+        "service": "payment-api",
+        "severity": "high"
+    }
+
+    approval_request = {
+        "proposed_action": "SIMULATE_SERVICE_RESTART",
+        "approval_status": "approved"
+    }
+
+    execution_result = {
+        "execution_status": "success",
+        "message": "Simulated service restart successful."
+    }
+
+    log = create_action_log(
+        incident,
+        approval_request,
+        execution_result
+    )
+
+    assert log["incident_type"] == "HIGH CPU USAGE"
+    assert log["approval_status"] == "approved"
+    assert log["execution_status"] == "success"
+    assert log["timestamp"] is not None
+
+
+def test_save_action_log(tmp_path):
+
+    log_entry = {
+        "incident_type": "HIGH CPU USAGE",
+        "approval_status": "approved",
+        "execution_status": "success"
+    }
+
+    file_path = tmp_path / "actions.jsonl"
+
+    result = save_action_log(log_entry, file_path)
+
+    assert result["success"] is True
+    assert file_path.exists()
+
+    saved_data = file_path.read_text(encoding="utf-8")
+
+    assert "HIGH CPU USAGE" in saved_data
