@@ -50,3 +50,23 @@ def log_metrics(metrics):
         json.dump(history, file, indent=4)
 
     print("Historical metrics saved successfully.")
+
+def get_metrics_history():
+    """
+    Retrieve previously saved system metrics.
+    """
+
+    if not os.path.exists(METRICS_FILE):
+        return []
+
+    try:
+        with open(METRICS_FILE, "r", encoding="utf-8") as file:
+            history = json.load(file)
+
+        if not isinstance(history, list):
+            raise ValueError("Metrics history must be a JSON list")
+
+        return history
+
+    except json.JSONDecodeError as error:
+        raise ValueError("Metrics history contains invalid JSON") from error

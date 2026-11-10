@@ -4,7 +4,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-
+from metrics_logger import get_metrics_history
 from main import detect_incidents
 from validators import validate_metrics
 from incident_details import build_incident_details
@@ -101,5 +101,22 @@ def monitor():
     except ValueError as error:
         raise HTTPException(
             status_code=422,
+            detail=str(error)
+        )
+
+@app.get("/api/v1/metrics/history")
+def metrics_history():
+    try:
+        history = get_metrics_history()
+
+        return {
+            "status": "success",
+            "count": len(history),
+            "history": history
+        }
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=500,
             detail=str(error)
         )

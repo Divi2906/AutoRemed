@@ -144,5 +144,45 @@ class TestAutoRemedAPI(unittest.TestCase):
 
         self.assertEqual(response.status_code, 422)
 
+    @patch("api.get_metrics_history")
+    def test_metrics_history_endpoint_success(self, mock_history):
+        mock_history.return_value = [
+            {
+                "timestamp": "2026-11-10T10:00:00+00:00",
+                "cpu": 25.0,
+                "memory": 80.5,
+                "disk": 43.3
+            }
+        ]
+
+        response = client.get("/api/v1/metrics/history")
+
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["history"][0]["cpu"], 25.0)
+
+    @patch("api.get_metrics_history")
+    def test_metrics_history_endpoint_empty(self, mock_history):
+        mock_history.return_value = []
+
+        response = client.get("/api/v1/metrics/history")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 0)
+        self.assertEqual(response.json()["history"], [])
+
+    @patch("api.get_metrics_history")
+    def test_metrics_history_endpoint_invalid_file(self, mock_history):
+        mock_history.side_effect = ValueError(
+            "Metrics history contains invalid JSON"
+        )
+
+        response = client.get("/api/v1/metrics/history")
+
+        self.assertEqual(response.status_code, 500)
+        self.assertIn("invalid JSON", response.json()["detail"])
 if __name__ == "__main__":
     unittest.main()
