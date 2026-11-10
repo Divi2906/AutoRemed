@@ -4,6 +4,7 @@ from incident_logger import log_incidents
 from system_monitor import get_system_metrics
 from main import detect_incidents
 from incident_details import build_incident_details
+from metrics_logger import log_metrics
 
 
 def start_continuous_monitoring(interval=10):
@@ -20,7 +21,8 @@ def start_continuous_monitoring(interval=10):
         while True:
             # Collect current system metrics
             metrics = get_system_metrics()
-
+            # Save historical system metrics
+            log_metrics(metrics)
             # Detect incidents
             incidents = detect_incidents(
                 metrics["cpu"],
