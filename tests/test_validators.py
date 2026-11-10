@@ -50,6 +50,28 @@ class TestMetricValidation(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_metrics(metrics)
 
+    
+    def test_positive_infinity(self):
+        metrics = {"cpu": float("inf"), "memory": 50, "disk": 50}
+        with self.assertRaises(ValueError):
+            validate_metrics(metrics)
+
+    def test_negative_infinity(self):
+        metrics = {"cpu": float("-inf"), "memory": 50, "disk": 50}
+        with self.assertRaises(ValueError):
+            validate_metrics(metrics)
+
+    def test_zero_boundary(self):
+        metrics = {"cpu": 0, "memory": 0, "disk": 0}
+        self.assertEqual(validate_metrics(metrics), metrics)
+
+    def test_100_boundary(self):
+        metrics = {"cpu": 100, "memory": 100, "disk": 100}
+        self.assertEqual(validate_metrics(metrics), metrics)
+
+    def test_non_dictionary_input(self):
+        with self.assertRaises(ValueError):
+            validate_metrics([50, 60, 70])
 
 if __name__ == "__main__":
     unittest.main()

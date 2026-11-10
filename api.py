@@ -1,5 +1,4 @@
-
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,9 +25,54 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+
+class Metrics(BaseModel):
+    cpu: float = Field(ge=0, le=100, strict=True)
+    memory: float = Field(ge=0, le=100, strict=True)
+    disk: float = Field(ge=0, le=100, strict=True)
+
 class DetectionRequest(BaseModel):
     service: str = Field(min_length=1)
-    metrics: dict[str, Any]
+    metrics: Metrics
+
+
+class IncidentResponse(BaseModel):
+    type: Literal[
+        "HIGH CPU USAGE",
+        "HIGH MEMORY USAGE",
+        "CRITICAL DISK USAGE"
+    ]
+    metric: Literal["cpu", "memory", "disk"]
+    actual_value: int | float
+    threshold: int | float
+    severity: Literal["high", "critical"]
+
+
+class DetectionResponse(BaseModel):
+    status: Literal["success"]
+    service: str
+    metrics: Metrics
+    incidents: list[IncidentResponse]
+    incident_count: int
+
+
+class HealthResponse(BaseModel):
+    status: Literal["healthy"]
+    service: str
+
+
+class MetricHistoryEntry(BaseModel):
+    timestamp: str
+    cpu: float
+    memory: float
+    disk: float
+
+
+class MetricsHistoryResponse(BaseModel):
+    status: Literal["success"]
+    count: int
+    history: list[MetricHistoryEntry]
 
 
 def process_metrics(service: str, metrics: dict):
@@ -63,7 +107,7 @@ def home():
     }
 
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 def health_check():
     return {
         "status": "healthy",
@@ -71,12 +115,12 @@ def health_check():
     }
 
 
-@app.post("/api/v1/detect")
+@app.post("/api/v1/detect", response_model=DetectionResponse)
 def detect(request: DetectionRequest):
     try:
         return process_metrics(
             request.service,
-            request.metrics
+            request.metrics.model_dump()
         )
 
     except ValueError as error:
@@ -85,8 +129,7 @@ def detect(request: DetectionRequest):
             detail=str(error)
         )
 
-
-@app.post("/api/v1/monitor")
+@app.post("/api/v1/monitor", response_model=DetectionResponse)
 def monitor():
     try:
         # Collect actual system metrics
@@ -104,7 +147,10 @@ def monitor():
             detail=str(error)
         )
 
-@app.get("/api/v1/metrics/history")
+@app.get(
+    "/api/v1/metrics/history",
+    response_model=MetricsHistoryResponse
+)
 def metrics_history():
     try:
         history = get_metrics_history()
