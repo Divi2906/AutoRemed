@@ -2,6 +2,7 @@
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from main import detect_incidents
@@ -14,7 +15,16 @@ app = FastAPI(
     description="Backend API for incident detection and automated remediation",
     version="1.0.0"
 )
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class DetectionRequest(BaseModel):
     service: str = Field(min_length=1)
@@ -40,10 +50,10 @@ def process_metrics(service: str, metrics: dict):
     return {
         "status": "success",
         "service": service,
+        "metrics": validated_metrics,
         "incidents": incident_details,
         "incident_count": len(incident_details)
     }
-
 
 @app.get("/")
 def home():
