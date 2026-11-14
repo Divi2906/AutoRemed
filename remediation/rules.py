@@ -9,7 +9,7 @@ SUPPORTED_ACTIONS = {
         "action": "SIMULATE_CACHE_CLEANUP",
         "description": "Simulate clearing the application cache."
     },
-    "HIGH DISK USAGE": {
+    "CRITICAL DISK USAGE": {
         "metric": "disk",
         "action": "SIMULATE_TEMP_FILE_CLEANUP",
         "description": "Simulate cleaning approved temporary files."
