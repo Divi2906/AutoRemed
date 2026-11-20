@@ -97,6 +97,27 @@ class TestAutoRemedAPI(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 422)
+
+    def test_incident_ids_are_unique_between_detections(self):
+        payload = {
+            "service": "test-service",
+            "metrics": {
+                "cpu": 95,
+                "memory": 50,
+                "disk": 40
+            }
+        }
+
+        response1 = client.post("/api/v1/detect", json=payload)
+        response2 = client.post("/api/v1/detect", json=payload)
+
+        self.assertEqual(response1.status_code, 200)
+        self.assertEqual(response2.status_code, 200)
+
+        id1 = response1.json()["incidents"][0]["id"]
+        id2 = response2.json()["incidents"][0]["id"]
+
+        self.assertNotEqual(id1, id2)
         
     @patch("api.get_system_metrics")
     def test_monitor_endpoint_success(self, mock_metrics):

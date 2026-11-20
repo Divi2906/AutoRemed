@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 from typing import Any
-
+import uuid
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -63,10 +63,9 @@ def process_metrics(service: str, metrics: dict):
 
     incident_details = build_incident_details(validated_metrics, incidents)
 
-    for index, incident in enumerate(incident_details, start=1):
-        incident["id"] = f"INC-{index:03d}"
+    for incident in incident_details:
+        incident["id"] = f"INC-{uuid.uuid4().hex[:8].upper()}"
         incident["service"] = service
-
     return {
         "status": "success",
         "service": service,
