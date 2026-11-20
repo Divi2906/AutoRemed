@@ -194,6 +194,61 @@ class TestAutoRemedAPI(unittest.TestCase):
         self.assertEqual(data["proposed_action"], "SIMULATE_SERVICE_RESTART")
         mock_save_log.assert_called_once()
 
+
+    @patch("api.execute_with_retries")
+    @patch("api.save_action_log")
+    def test_approval_endpoint_retry_failure_requires_manual_intervention(
+        self, mock_save_log, mock_retry
+    ):
+        mock_retry.return_value = {
+            "execution_status": "failed",
+            "attempt_count": 3,
+            "attempt_history": [
+                {
+                    "attempt": 1,
+                    "execution_status": "failed",
+                    "message": "Simulated failure"
+                },
+                {
+                    "attempt": 2,
+                    "execution_status": "failed",
+                    "message": "Simulated failure"
+                },
+                {
+                    "attempt": 3,
+                    "execution_status": "failed",
+                    "message": "Simulated failure"
+                }
+            ],
+            "manual_intervention_required": True,
+            "message": "Remediation failed after 3 attempts. Manual intervention required."
+        }
+
+        response = client.post(
+            "/api/v1/approval",
+            json={
+                "incident_id": "TEST-RETRY-FAILURE-001",
+                "incident": {
+                    "type": "HIGH CPU USAGE",
+                    "metric": "cpu",
+                    "service": "payment-api",
+                    "severity": "high"
+                },
+                "decision": "approve"
+            }
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+
+        self.assertEqual(data["execution_status"], "failed")
+        self.assertEqual(data["attempt_count"], 3)
+        self.assertTrue(data["manual_intervention_required"])
+        self.assertEqual(len(data["attempt_history"]), 3)
+        mock_retry.assert_called_once()
+        mock_save_log.assert_called_once()
+
     @patch("api.save_action_log")
     def test_approval_endpoint_rejected(self, mock_save_log):
         response = client.post(

@@ -16,9 +16,13 @@ def create_action_log(incident, approval_request, execution_result):
         "proposed_action": approval_request.get("proposed_action"),
         "approval_status": approval_request.get("approval_status"),
         "execution_status": execution_result.get("execution_status"),
-        "message": execution_result.get("message"),
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    }
+	"attempt_count": execution_result.get("attempt_count", 1),
+	"attempt_history": execution_result.get("attempt_history", []),
+	"manual_intervention_required": execution_result.get(
+    		"manual_intervention_required", False
+	),
+	"message": execution_result.get("message"),
+	"timestamp": datetime.now(timezone.utc).isoformat()    }
 
     return log_entry
 

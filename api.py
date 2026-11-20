@@ -13,7 +13,7 @@ from system_monitor import get_system_metrics
 
 from remediation.rules import get_supported_action
 from remediation.approval import request_approval, process_approval
-from remediation.executor import execute_remediation
+from remediation.retry import execute_with_retries
 from remediation.action_logs import create_action_log, save_action_log
 
 
@@ -147,11 +147,18 @@ def handle_approval(request: ApprovalRequest):
         raise HTTPException(status_code=409, detail=approval_result["message"])
 
     # Executor itself blocks anything that has not been approved.
+    # Execute approved remediation with automatic retry support.
     if decision == "approve":
-        execution_result = execute_remediation(approval_request)
+        execution_result = execute_with_retries(
+            approval_request,
+            max_attempts=3
+        )
     else:
         execution_result = {
             "execution_status": "not_executed",
+            "attempt_count": 0,
+            "attempt_history": [],
+            "manual_intervention_required": False,
             "message": "Remediation was rejected; no action was executed."
         }
 
@@ -165,15 +172,19 @@ def handle_approval(request: ApprovalRequest):
     approval_requests[request.incident_id] = approval_request
 
     return {
-        "success": True,
-        "incident_id": request.incident_id,
-        "approval_status": approval_request["approval_status"],
-        "execution_status": execution_result.get("execution_status"),
-        "proposed_action": approval_request["proposed_action"],
-        "message": approval_result["message"],
-        "execution_message": execution_result.get("message")
+    	"success": True,
+    	"incident_id": request.incident_id,
+    	"approval_status": approval_request["approval_status"],
+    	"execution_status": execution_result.get("execution_status"),
+    	"proposed_action": approval_request["proposed_action"],
+    	"message": approval_result["message"],
+    	"execution_message": execution_result.get("message"),
+    	"attempt_count": execution_result.get("attempt_count", 0),
+    	"attempt_history": execution_result.get("attempt_history", []),
+    	"manual_intervention_required": execution_result.get(
+        "manual_intervention_required", False
+    	)
     }
-
 
 @app.get("/api/v1/activity-logs")
 def get_activity_logs():
