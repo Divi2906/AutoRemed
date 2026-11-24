@@ -1,0 +1,4131 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "AutoRemed API",
+  "description": "Safe AI-assisted self-healing DevOps prototype. Real-host data is read-only; all fault injection and remediation operate on an isolated SIMULATION.",
+  "version": "1.0.0"
+ },
+ "paths": {
+  "/api/health": {
+   "get": {
+    "tags": [
+     "system"
+    ],
+    "summary": "Application health",
+    "operationId": "health_api_health_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HealthOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/metrics/current": {
+   "get": {
+    "tags": [
+     "monitoring"
+    ],
+    "summary": "Current metrics for REAL HOST and SIMULATION (kept separate)",
+    "operationId": "metrics_current_api_metrics_current_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CurrentMetrics"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/metrics/history": {
+   "get": {
+    "tags": [
+     "monitoring"
+    ],
+    "summary": "Persisted metric history for one environment (oldest first)",
+    "operationId": "metrics_history_api_metrics_history_get",
+    "parameters": [
+     {
+      "name": "environment",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "enum": [
+        "real_host",
+        "simulation"
+       ],
+       "type": "string",
+       "title": "Environment"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 2000,
+       "minimum": 1,
+       "default": 120,
+       "title": "Limit"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/MetricPoint"
+         },
+         "title": "Response Metrics History Api Metrics History Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/monitoring/status": {
+   "get": {
+    "tags": [
+     "monitoring"
+    ],
+    "summary": "Monitoring Status",
+    "operationId": "monitoring_status_api_monitoring_status_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MonitoringStatus"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/monitoring/start": {
+   "post": {
+    "tags": [
+     "monitoring"
+    ],
+    "summary": "Monitoring Start",
+    "operationId": "monitoring_start_api_monitoring_start_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/MonitoringStart"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MonitoringAction"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/monitoring/stop": {
+   "post": {
+    "tags": [
+     "monitoring"
+    ],
+    "summary": "Monitoring Stop",
+    "operationId": "monitoring_stop_api_monitoring_stop_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MonitoringAction"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/summary": {
+   "get": {
+    "tags": [
+     "dashboard"
+    ],
+    "summary": "Dashboard KPIs",
+    "operationId": "summary_api_summary_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SummaryOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/incidents": {
+   "get": {
+    "tags": [
+     "incidents"
+    ],
+    "summary": "Incidents List",
+    "operationId": "incidents_list_api_incidents_get",
+    "parameters": [
+     {
+      "name": "status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
+      }
+     },
+     {
+      "name": "severity",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "warning",
+          "critical"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Severity"
+      }
+     },
+     {
+      "name": "environment",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "real_host",
+          "simulation"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Environment"
+      }
+     },
+     {
+      "name": "type",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Type"
+      }
+     },
+     {
+      "name": "q",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Q"
+      }
+     },
+     {
+      "name": "active_only",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Active Only"
+      }
+     },
+     {
+      "name": "manual_only",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Manual Only"
+      }
+     },
+     {
+      "name": "sort",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "created_at",
+       "title": "Sort"
+      }
+     },
+     {
+      "name": "order",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "enum": [
+        "asc",
+        "desc"
+       ],
+       "type": "string",
+       "default": "desc",
+       "title": "Order"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 500,
+       "minimum": 1,
+       "default": 100,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Page_IncidentOut_"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/incidents/active": {
+   "get": {
+    "tags": [
+     "incidents"
+    ],
+    "summary": "Incidents Active",
+    "operationId": "incidents_active_api_incidents_active_get",
+    "parameters": [
+     {
+      "name": "environment",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "real_host",
+          "simulation"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Environment"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/IncidentOut"
+         },
+         "title": "Response Incidents Active Api Incidents Active Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/incidents/simulate": {
+   "post": {
+    "tags": [
+     "incidents"
+    ],
+    "summary": "Inject a fault into the SIMULATION (goes through the real detection pipeline)",
+    "operationId": "incidents_simulate_api_incidents_simulate_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SimulateRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SimulateOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/incidents/{incident_id}": {
+   "get": {
+    "tags": [
+     "incidents"
+    ],
+    "summary": "Incident Detail",
+    "operationId": "incident_detail_api_incidents__incident_id__get",
+    "parameters": [
+     {
+      "name": "incident_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Incident Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/IncidentDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/incidents/{incident_id}/resolve": {
+   "post": {
+    "tags": [
+     "incidents"
+    ],
+    "summary": "Operator closes an escalated/rejected incident once the condition is actually healthy",
+    "operationId": "incident_resolve_api_incidents__incident_id__resolve_post",
+    "parameters": [
+     {
+      "name": "incident_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Incident Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/ResolveRequest"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/IncidentOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/remediation": {
+   "get": {
+    "tags": [
+     "remediation"
+    ],
+    "summary": "Remediation List",
+    "operationId": "remediation_list_api_remediation_get",
+    "parameters": [
+     {
+      "name": "status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
+      }
+     },
+     {
+      "name": "approval_state",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Approval State"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 500,
+       "minimum": 1,
+       "default": 100,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Page_RemediationOut_"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/remediation/{remediation_id}": {
+   "get": {
+    "tags": [
+     "remediation"
+    ],
+    "summary": "Remediation Detail",
+    "operationId": "remediation_detail_api_remediation__remediation_id__get",
+    "parameters": [
+     {
+      "name": "remediation_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Remediation Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RemediationDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/remediation/{remediation_id}/approve": {
+   "post": {
+    "tags": [
+     "remediation"
+    ],
+    "summary": "Approve a pending remediation (starts the normal execute/verify/retry workflow)",
+    "operationId": "remediation_approve_api_remediation__remediation_id__approve_post",
+    "parameters": [
+     {
+      "name": "remediation_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Remediation Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/DecisionRequest"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RemediationDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/remediation/{remediation_id}/reject": {
+   "post": {
+    "tags": [
+     "remediation"
+    ],
+    "summary": "Reject a pending remediation (it will never execute)",
+    "operationId": "remediation_reject_api_remediation__remediation_id__reject_post",
+    "parameters": [
+     {
+      "name": "remediation_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Remediation Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/DecisionRequest"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RemediationDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/executions": {
+   "get": {
+    "tags": [
+     "executions"
+    ],
+    "summary": "Executions List",
+    "operationId": "executions_list_api_executions_get",
+    "parameters": [
+     {
+      "name": "incident_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Incident Id"
+      }
+     },
+     {
+      "name": "status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 500,
+       "minimum": 1,
+       "default": 100,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Page_ExecutionOut_"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/executions/{execution_id}": {
+   "get": {
+    "tags": [
+     "executions"
+    ],
+    "summary": "Execution Detail",
+    "operationId": "execution_detail_api_executions__execution_id__get",
+    "parameters": [
+     {
+      "name": "execution_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Execution Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ExecutionOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/verification": {
+   "get": {
+    "tags": [
+     "verification"
+    ],
+    "summary": "Verification List",
+    "operationId": "verification_list_api_verification_get",
+    "parameters": [
+     {
+      "name": "incident_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Incident Id"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 500,
+       "minimum": 1,
+       "default": 100,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Page_VerificationOut_"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/verification/{verification_id}": {
+   "get": {
+    "tags": [
+     "verification"
+    ],
+    "summary": "Verification Detail",
+    "operationId": "verification_detail_api_verification__verification_id__get",
+    "parameters": [
+     {
+      "name": "verification_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Verification Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/VerificationOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/activity-logs": {
+   "get": {
+    "tags": [
+     "activity"
+    ],
+    "summary": "Activity Logs",
+    "operationId": "activity_logs_api_activity_logs_get",
+    "parameters": [
+     {
+      "name": "event_type",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Event Type"
+      }
+     },
+     {
+      "name": "incident_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Incident Id"
+      }
+     },
+     {
+      "name": "status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
+      }
+     },
+     {
+      "name": "environment",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "real_host",
+          "simulation"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Environment"
+      }
+     },
+     {
+      "name": "q",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Q"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 1000,
+       "minimum": 1,
+       "default": 100,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0,
+       "title": "Offset"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Page_ActivityOut_"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/config": {
+   "get": {
+    "tags": [
+     "config"
+    ],
+    "summary": "Config Get",
+    "operationId": "config_get_api_config_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ConfigOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/config/thresholds": {
+   "put": {
+    "tags": [
+     "config"
+    ],
+    "summary": "Config Thresholds",
+    "operationId": "config_thresholds_api_config_thresholds_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ThresholdUpdate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ConfigOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/config/mode": {
+   "put": {
+    "tags": [
+     "config"
+    ],
+    "summary": "Switch between Autonomous and Approval mode (applies to newly detected incidents)",
+    "operationId": "config_mode_api_config_mode_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ModeUpdate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ConfigOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/config/monitoring": {
+   "put": {
+    "tags": [
+     "config"
+    ],
+    "summary": "Config Monitoring",
+    "operationId": "config_monitoring_api_config_monitoring_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MonitoringUpdate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ConfigOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/demo/scenarios": {
+   "get": {
+    "tags": [
+     "demo"
+    ],
+    "summary": "Demo Scenarios",
+    "operationId": "demo_scenarios_api_demo_scenarios_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ScenarioList"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/demo/scenario": {
+   "post": {
+    "tags": [
+     "demo"
+    ],
+    "summary": "Run a deterministic scenario through the real pipeline (SIMULATION only)",
+    "operationId": "demo_scenario_api_demo_scenario_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ScenarioRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ScenarioTriggerOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/demo/recover": {
+   "post": {
+    "tags": [
+     "demo"
+    ],
+    "summary": "Demo Recover",
+    "operationId": "demo_recover_api_demo_recover_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RecoverRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RecoverOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/demo/reset": {
+   "post": {
+    "tags": [
+     "demo"
+    ],
+    "summary": "Reset simulated state; closes active simulation incidents but keeps all history",
+    "operationId": "demo_reset_api_demo_reset_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ResetOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/demo/history": {
+   "get": {
+    "tags": [
+     "demo"
+    ],
+    "summary": "Demo History",
+    "operationId": "demo_history_api_demo_history_get",
+    "parameters": [
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 200,
+       "minimum": 1,
+       "default": 50,
+       "title": "Limit"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/DemoRun"
+         },
+         "title": "Response Demo History Api Demo History Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "ActivityOut": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "ts": {
+      "type": "string",
+      "title": "Ts"
+     },
+     "event_type": {
+      "type": "string",
+      "title": "Event Type"
+     },
+     "incident_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Incident Id"
+     },
+     "action": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Action"
+     },
+     "status": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Status"
+     },
+     "attempt": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Attempt"
+     },
+     "environment": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Environment"
+     },
+     "message": {
+      "type": "string",
+      "title": "Message"
+     },
+     "details": {
+      "anyOf": [
+       {},
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Details"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "ts",
+     "event_type",
+     "message"
+    ],
+    "title": "ActivityOut"
+   },
+   "ApprovalOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "remediation_id": {
+      "type": "string",
+      "title": "Remediation Id"
+     },
+     "incident_id": {
+      "type": "string",
+      "title": "Incident Id"
+     },
+     "action": {
+      "type": "string",
+      "title": "Action"
+     },
+     "actor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Actor"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     },
+     "created_at": {
+      "type": "string",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "remediation_id",
+     "incident_id",
+     "action",
+     "created_at"
+    ],
+    "title": "ApprovalOut"
+   },
+   "AttemptOut": {
+    "properties": {
+     "attempt": {
+      "type": "integer",
+      "title": "Attempt"
+     },
+     "strategy": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Strategy"
+     },
+     "outcome": {
+      "type": "string",
+      "title": "Outcome"
+     },
+     "decision": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/DecisionOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "execution": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ExecutionOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "verification": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/VerificationOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "state_before": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "State Before"
+     },
+     "state_after": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "State After"
+     },
+     "failure_reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Failure Reason"
+     },
+     "started_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Started At"
+     },
+     "duration_ms": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Duration Ms"
+     },
+     "message": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Message"
+     }
+    },
+    "type": "object",
+    "required": [
+     "attempt",
+     "outcome"
+    ],
+    "title": "AttemptOut"
+   },
+   "ConfigOut": {
+    "properties": {
+     "thresholds": {
+      "additionalProperties": {
+       "additionalProperties": {
+        "type": "number"
+       },
+       "type": "object"
+      },
+      "type": "object",
+      "title": "Thresholds"
+     },
+     "mode": {
+      "type": "string",
+      "title": "Mode"
+     },
+     "monitoring": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Monitoring"
+     },
+     "consecutive_violations": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object",
+      "title": "Consecutive Violations"
+     },
+     "ranker": {
+      "type": "string",
+      "title": "Ranker"
+     },
+     "ranker_info": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Ranker Info"
+     },
+     "max_attempts": {
+      "type": "integer",
+      "title": "Max Attempts"
+     },
+     "executors": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Executors"
+     }
+    },
+    "type": "object",
+    "required": [
+     "thresholds",
+     "mode",
+     "monitoring",
+     "consecutive_violations",
+     "ranker",
+     "ranker_info",
+     "max_attempts",
+     "executors"
+    ],
+    "title": "ConfigOut"
+   },
+   "CurrentMetrics": {
+    "properties": {
+     "real_host": {
+      "$ref": "#/components/schemas/EnvironmentMetrics"
+     },
+     "simulation": {
+      "$ref": "#/components/schemas/EnvironmentMetrics"
+     },
+     "thresholds": {
+      "additionalProperties": {
+       "additionalProperties": {
+        "type": "number"
+       },
+       "type": "object"
+      },
+      "type": "object",
+      "title": "Thresholds"
+     },
+     "monitoring": {
+      "$ref": "#/components/schemas/MonitoringStatus"
+     },
+     "mode": {
+      "type": "string",
+      "title": "Mode"
+     }
+    },
+    "type": "object",
+    "required": [
+     "real_host",
+     "simulation",
+     "thresholds",
+     "monitoring",
+     "mode"
+    ],
+    "title": "CurrentMetrics"
+   },
+   "DecisionOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "incident_id": {
+      "type": "string",
+      "title": "Incident Id"
+     },
+     "attempt": {
+      "type": "integer",
+      "title": "Attempt"
+     },
+     "strategy": {
+      "type": "string",
+      "title": "Strategy"
+     },
+     "reason": {
+      "type": "string",
+      "title": "Reason"
+     },
+     "expected_outcome": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected Outcome"
+     },
+     "context": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Context"
+     },
+     "previous_outcomes": {
+      "anyOf": [
+       {
+        "items": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Previous Outcomes"
+     },
+     "alternatives": {
+      "anyOf": [
+       {
+        "items": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Alternatives"
+     },
+     "ranker": {
+      "type": "string",
+      "title": "Ranker"
+     },
+     "created_at": {
+      "type": "string",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "incident_id",
+     "attempt",
+     "strategy",
+     "reason",
+     "ranker",
+     "created_at"
+    ],
+    "title": "DecisionOut"
+   },
+   "DecisionRequest": {
+    "properties": {
+     "actor": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Actor",
+      "default": "operator"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 500
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "DecisionRequest"
+   },
+   "DemoRun": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "ts": {
+      "type": "string",
+      "title": "Ts"
+     },
+     "scenario": {
+      "type": "string",
+      "title": "Scenario"
+     },
+     "fault": {
+      "type": "string",
+      "title": "Fault"
+     },
+     "incident_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Incident Id"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "params": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Params"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     },
+     "incident_status": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Incident Status"
+     },
+     "attempts_made": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Attempts Made"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "ts",
+     "scenario",
+     "fault",
+     "status"
+    ],
+    "title": "DemoRun"
+   },
+   "EnvironmentMetrics": {
+    "properties": {
+     "environment": {
+      "type": "string",
+      "enum": [
+       "real_host",
+       "simulation"
+      ],
+      "title": "Environment"
+     },
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "ts": {
+      "type": "string",
+      "title": "Ts"
+     },
+     "cpu": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cpu"
+     },
+     "memory": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Memory"
+     },
+     "disk": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Disk"
+     },
+     "service_state": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Service State"
+     },
+     "health": {
+      "type": "string",
+      "title": "Health"
+     },
+     "statuses": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object",
+      "title": "Statuses"
+     },
+     "errors": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Errors",
+      "default": []
+     }
+    },
+    "type": "object",
+    "required": [
+     "environment",
+     "label",
+     "ts",
+     "health",
+     "statuses"
+    ],
+    "title": "EnvironmentMetrics"
+   },
+   "ExecutionOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "incident_id": {
+      "type": "string",
+      "title": "Incident Id"
+     },
+     "remediation_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Remediation Id"
+     },
+     "environment": {
+      "type": "string",
+      "title": "Environment"
+     },
+     "action": {
+      "type": "string",
+      "title": "Action"
+     },
+     "strategy": {
+      "type": "string",
+      "title": "Strategy"
+     },
+     "executor": {
+      "type": "string",
+      "title": "Executor"
+     },
+     "attempt": {
+      "type": "integer",
+      "title": "Attempt"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "started_at": {
+      "type": "string",
+      "title": "Started At"
+     },
+     "ended_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ended At"
+     },
+     "duration_ms": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Duration Ms"
+     },
+     "message": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Message"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "incident_id",
+     "environment",
+     "action",
+     "strategy",
+     "executor",
+     "attempt",
+     "status",
+     "started_at"
+    ],
+    "title": "ExecutionOut"
+   },
+   "FaultInfo": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "initial": {
+      "type": "string",
+      "title": "Initial"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "label",
+     "initial"
+    ],
+    "title": "FaultInfo"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "title": "HTTPValidationError"
+   },
+   "HealthOut": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "database": {
+      "type": "string",
+      "title": "Database"
+     },
+     "monitoring_running": {
+      "type": "boolean",
+      "title": "Monitoring Running"
+     },
+     "mode": {
+      "type": "string",
+      "title": "Mode"
+     },
+     "version": {
+      "type": "string",
+      "title": "Version"
+     },
+     "time": {
+      "type": "string",
+      "title": "Time"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status",
+     "database",
+     "monitoring_running",
+     "mode",
+     "version",
+     "time"
+    ],
+    "title": "HealthOut"
+   },
+   "IncidentDetail": {
+    "properties": {
+     "incident": {
+      "$ref": "#/components/schemas/IncidentOut"
+     },
+     "remediation": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/RemediationOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "attempts": {
+      "items": {
+       "$ref": "#/components/schemas/AttemptOut"
+      },
+      "type": "array",
+      "title": "Attempts"
+     },
+     "decisions": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "title": "Decisions",
+      "default": []
+     },
+     "approvals": {
+      "items": {
+       "$ref": "#/components/schemas/ApprovalOut"
+      },
+      "type": "array",
+      "title": "Approvals"
+     },
+     "timeline": {
+      "items": {
+       "$ref": "#/components/schemas/ActivityOut"
+      },
+      "type": "array",
+      "title": "Timeline"
+     },
+     "current_value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Current Value"
+     }
+    },
+    "type": "object",
+    "required": [
+     "incident",
+     "attempts",
+     "approvals",
+     "timeline"
+    ],
+    "title": "IncidentDetail"
+   },
+   "IncidentOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "fingerprint": {
+      "type": "string",
+      "title": "Fingerprint"
+     },
+     "type": {
+      "type": "string",
+      "title": "Type"
+     },
+     "severity": {
+      "type": "string",
+      "title": "Severity"
+     },
+     "environment": {
+      "type": "string",
+      "enum": [
+       "real_host",
+       "simulation"
+      ],
+      "title": "Environment"
+     },
+     "environment_label": {
+      "type": "string",
+      "title": "Environment Label"
+     },
+     "metric": {
+      "type": "string",
+      "title": "Metric"
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Value"
+     },
+     "threshold": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Threshold"
+     },
+     "value_label": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Value Label"
+     },
+     "threshold_label": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Threshold Label"
+     },
+     "description": {
+      "type": "string",
+      "title": "Description"
+     },
+     "root_cause": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Root Cause"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "is_active": {
+      "type": "boolean",
+      "title": "Is Active"
+     },
+     "workflow_state": {
+      "type": "string",
+      "title": "Workflow State"
+     },
+     "mode": {
+      "type": "string",
+      "title": "Mode"
+     },
+     "observe_only": {
+      "type": "boolean",
+      "title": "Observe Only"
+     },
+     "diagnosis": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Diagnosis"
+     },
+     "scenario": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scenario"
+     },
+     "resolution": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resolution"
+     },
+     "resolution_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resolution Type"
+     },
+     "closed_reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Closed Reason"
+     },
+     "manual_intervention_required": {
+      "type": "boolean",
+      "title": "Manual Intervention Required"
+     },
+     "recommended_action": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Recommended Action"
+     },
+     "attempts_made": {
+      "type": "integer",
+      "title": "Attempts Made"
+     },
+     "max_attempts": {
+      "type": "integer",
+      "title": "Max Attempts"
+     },
+     "final_state": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Final State"
+     },
+     "created_at": {
+      "type": "string",
+      "title": "Created At"
+     },
+     "updated_at": {
+      "type": "string",
+      "title": "Updated At"
+     },
+     "resolved_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resolved At"
+     },
+     "escalated_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Escalated At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "fingerprint",
+     "type",
+     "severity",
+     "environment",
+     "environment_label",
+     "metric",
+     "description",
+     "status",
+     "is_active",
+     "workflow_state",
+     "mode",
+     "observe_only",
+     "manual_intervention_required",
+     "attempts_made",
+     "max_attempts",
+     "created_at",
+     "updated_at"
+    ],
+    "title": "IncidentOut"
+   },
+   "MetricPoint": {
+    "properties": {
+     "ts": {
+      "type": "string",
+      "title": "Ts"
+     },
+     "environment": {
+      "type": "string",
+      "enum": [
+       "real_host",
+       "simulation"
+      ],
+      "title": "Environment"
+     },
+     "cpu": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cpu"
+     },
+     "memory": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Memory"
+     },
+     "disk": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Disk"
+     },
+     "service_state": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Service State"
+     },
+     "health": {
+      "type": "string",
+      "title": "Health"
+     }
+    },
+    "type": "object",
+    "required": [
+     "ts",
+     "environment",
+     "health"
+    ],
+    "title": "MetricPoint"
+   },
+   "ModeUpdate": {
+    "properties": {
+     "mode": {
+      "type": "string",
+      "enum": [
+       "autonomous",
+       "approval"
+      ],
+      "title": "Mode"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "mode"
+    ],
+    "title": "ModeUpdate"
+   },
+   "MonitoringAction": {
+    "properties": {
+     "changed": {
+      "type": "boolean",
+      "title": "Changed"
+     },
+     "status": {
+      "$ref": "#/components/schemas/MonitoringStatus"
+     }
+    },
+    "type": "object",
+    "required": [
+     "changed",
+     "status"
+    ],
+    "title": "MonitoringAction"
+   },
+   "MonitoringStart": {
+    "properties": {
+     "interval_seconds": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 3600.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Interval Seconds"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "MonitoringStart"
+   },
+   "MonitoringStatus": {
+    "properties": {
+     "running": {
+      "type": "boolean",
+      "title": "Running"
+     },
+     "interval_seconds": {
+      "type": "number",
+      "title": "Interval Seconds"
+     },
+     "started_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Started At"
+     },
+     "tick_count": {
+      "type": "integer",
+      "title": "Tick Count"
+     },
+     "error_count": {
+      "type": "integer",
+      "title": "Error Count"
+     },
+     "last_tick_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Tick At"
+     },
+     "last_error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Error"
+     },
+     "thread_count": {
+      "type": "integer",
+      "title": "Thread Count"
+     }
+    },
+    "type": "object",
+    "required": [
+     "running",
+     "interval_seconds",
+     "tick_count",
+     "error_count",
+     "thread_count"
+    ],
+    "title": "MonitoringStatus"
+   },
+   "MonitoringUpdate": {
+    "properties": {
+     "interval_seconds": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 3600.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Interval Seconds"
+     },
+     "consecutive_violations_real_host": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 20.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Consecutive Violations Real Host"
+     },
+     "consecutive_violations_simulation": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 20.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Consecutive Violations Simulation"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "MonitoringUpdate"
+   },
+   "Page_ActivityOut_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/ActivityOut"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "limit": {
+      "type": "integer",
+      "title": "Limit"
+     },
+     "offset": {
+      "type": "integer",
+      "title": "Offset"
+     }
+    },
+    "type": "object",
+    "required": [
+     "items",
+     "total",
+     "limit",
+     "offset"
+    ],
+    "title": "Page[ActivityOut]"
+   },
+   "Page_ExecutionOut_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/ExecutionOut"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "limit": {
+      "type": "integer",
+      "title": "Limit"
+     },
+     "offset": {
+      "type": "integer",
+      "title": "Offset"
+     }
+    },
+    "type": "object",
+    "required": [
+     "items",
+     "total",
+     "limit",
+     "offset"
+    ],
+    "title": "Page[ExecutionOut]"
+   },
+   "Page_IncidentOut_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/IncidentOut"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "limit": {
+      "type": "integer",
+      "title": "Limit"
+     },
+     "offset": {
+      "type": "integer",
+      "title": "Offset"
+     }
+    },
+    "type": "object",
+    "required": [
+     "items",
+     "total",
+     "limit",
+     "offset"
+    ],
+    "title": "Page[IncidentOut]"
+   },
+   "Page_RemediationOut_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/RemediationOut"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "limit": {
+      "type": "integer",
+      "title": "Limit"
+     },
+     "offset": {
+      "type": "integer",
+      "title": "Offset"
+     }
+    },
+    "type": "object",
+    "required": [
+     "items",
+     "total",
+     "limit",
+     "offset"
+    ],
+    "title": "Page[RemediationOut]"
+   },
+   "Page_VerificationOut_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/VerificationOut"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "limit": {
+      "type": "integer",
+      "title": "Limit"
+     },
+     "offset": {
+      "type": "integer",
+      "title": "Offset"
+     }
+    },
+    "type": "object",
+    "required": [
+     "items",
+     "total",
+     "limit",
+     "offset"
+    ],
+    "title": "Page[VerificationOut]"
+   },
+   "RecoverOut": {
+    "properties": {
+     "fault": {
+      "type": "string",
+      "title": "Fault"
+     },
+     "state": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "State"
+     }
+    },
+    "type": "object",
+    "required": [
+     "fault",
+     "state"
+    ],
+    "title": "RecoverOut"
+   },
+   "RecoverRequest": {
+    "properties": {
+     "fault": {
+      "type": "string",
+      "enum": [
+       "cpu",
+       "memory",
+       "disk",
+       "service"
+      ],
+      "title": "Fault"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "fault"
+    ],
+    "title": "RecoverRequest"
+   },
+   "RemediationDetail": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "incident_id": {
+      "type": "string",
+      "title": "Incident Id"
+     },
+     "mode": {
+      "type": "string",
+      "title": "Mode"
+     },
+     "approval_state": {
+      "type": "string",
+      "title": "Approval State"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "proposed_strategy": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Proposed Strategy"
+     },
+     "proposal": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Proposal"
+     },
+     "created_at": {
+      "type": "string",
+      "title": "Created At"
+     },
+     "updated_at": {
+      "type": "string",
+      "title": "Updated At"
+     },
+     "completed_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Completed At"
+     },
+     "incident_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Incident Type"
+     },
+     "severity": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Severity"
+     },
+     "environment": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Environment"
+     },
+     "metric": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Metric"
+     },
+     "incident_status": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Incident Status"
+     },
+     "attempts_made": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Attempts Made"
+     },
+     "max_attempts": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Attempts"
+     },
+     "manual_intervention_required": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Manual Intervention Required"
+     },
+     "is_active": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Is Active"
+     },
+     "incident": {
+      "$ref": "#/components/schemas/IncidentOut"
+     },
+     "attempts": {
+      "items": {
+       "$ref": "#/components/schemas/AttemptOut"
+      },
+      "type": "array",
+      "title": "Attempts"
+     },
+     "approvals": {
+      "items": {
+       "$ref": "#/components/schemas/ApprovalOut"
+      },
+      "type": "array",
+      "title": "Approvals"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "incident_id",
+     "mode",
+     "approval_state",
+     "status",
+     "created_at",
+     "updated_at",
+     "incident",
+     "attempts",
+     "approvals"
+    ],
+    "title": "RemediationDetail"
+   },
+   "RemediationOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "incident_id": {
+      "type": "string",
+      "title": "Incident Id"
+     },
+     "mode": {
+      "type": "string",
+      "title": "Mode"
+     },
+     "approval_state": {
+      "type": "string",
+      "title": "Approval State"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "proposed_strategy": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Proposed Strategy"
+     },
+     "proposal": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Proposal"
+     },
+     "created_at": {
+      "type": "string",
+      "title": "Created At"
+     },
+     "updated_at": {
+      "type": "string",
+      "title": "Updated At"
+     },
+     "completed_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Completed At"
+     },
+     "incident_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Incident Type"
+     },
+     "severity": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Severity"
+     },
+     "environment": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Environment"
+     },
+     "metric": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Metric"
+     },
+     "incident_status": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Incident Status"
+     },
+     "attempts_made": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Attempts Made"
+     },
+     "max_attempts": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Attempts"
+     },
+     "manual_intervention_required": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Manual Intervention Required"
+     },
+     "is_active": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Is Active"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "incident_id",
+     "mode",
+     "approval_state",
+     "status",
+     "created_at",
+     "updated_at"
+    ],
+    "title": "RemediationOut"
+   },
+   "ResetOut": {
+    "properties": {
+     "state": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "State"
+     },
+     "closed_incidents": {
+      "type": "integer",
+      "title": "Closed Incidents"
+     }
+    },
+    "type": "object",
+    "required": [
+     "state",
+     "closed_incidents"
+    ],
+    "title": "ResetOut"
+   },
+   "ResolveRequest": {
+    "properties": {
+     "note": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 500
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "ResolveRequest"
+   },
+   "ScenarioInfo": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "group": {
+      "type": "string",
+      "title": "Group"
+     },
+     "description": {
+      "type": "string",
+      "title": "Description"
+     },
+     "plan": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Plan"
+     },
+     "mode": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mode"
+     },
+     "expected": {
+      "type": "string",
+      "title": "Expected"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "title",
+     "group",
+     "description",
+     "plan",
+     "expected"
+    ],
+    "title": "ScenarioInfo"
+   },
+   "ScenarioList": {
+    "properties": {
+     "faults": {
+      "items": {
+       "$ref": "#/components/schemas/FaultInfo"
+      },
+      "type": "array",
+      "title": "Faults"
+     },
+     "scenarios": {
+      "items": {
+       "$ref": "#/components/schemas/ScenarioInfo"
+      },
+      "type": "array",
+      "title": "Scenarios"
+     }
+    },
+    "type": "object",
+    "required": [
+     "faults",
+     "scenarios"
+    ],
+    "title": "ScenarioList"
+   },
+   "ScenarioRequest": {
+    "properties": {
+     "scenario": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Scenario"
+     },
+     "fault": {
+      "type": "string",
+      "enum": [
+       "cpu",
+       "memory",
+       "disk",
+       "service"
+      ],
+      "title": "Fault"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "scenario",
+     "fault"
+    ],
+    "title": "ScenarioRequest"
+   },
+   "ScenarioTriggerOut": {
+    "properties": {
+     "run_id": {
+      "type": "string",
+      "title": "Run Id"
+     },
+     "scenario": {
+      "type": "string",
+      "title": "Scenario"
+     },
+     "fault": {
+      "type": "string",
+      "title": "Fault"
+     },
+     "incident_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Incident Id"
+     },
+     "expected": {
+      "type": "string",
+      "title": "Expected"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     }
+    },
+    "type": "object",
+    "required": [
+     "run_id",
+     "scenario",
+     "fault",
+     "expected"
+    ],
+    "title": "ScenarioTriggerOut"
+   },
+   "SimulateOut": {
+    "properties": {
+     "fault": {
+      "type": "string",
+      "title": "Fault"
+     },
+     "scenario": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scenario"
+     },
+     "state": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "State"
+     },
+     "incident_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Incident Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "fault",
+     "state"
+    ],
+    "title": "SimulateOut"
+   },
+   "SimulateRequest": {
+    "properties": {
+     "fault": {
+      "type": "string",
+      "enum": [
+       "cpu",
+       "memory",
+       "disk",
+       "service"
+      ],
+      "title": "Fault"
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string",
+        "enum": [
+         "degraded",
+         "failed"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Value"
+     },
+     "plan": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string",
+         "enum": [
+          "recover",
+          "exec_fail",
+          "partial",
+          "no_effect"
+         ]
+        },
+        "type": "array",
+        "maxItems": 3
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Plan"
+     },
+     "mode_override": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "autonomous",
+         "approval"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mode Override"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "fault"
+    ],
+    "title": "SimulateRequest"
+   },
+   "SummaryOut": {
+    "properties": {
+     "active": {
+      "type": "integer",
+      "title": "Active"
+     },
+     "active_critical": {
+      "type": "integer",
+      "title": "Active Critical"
+     },
+     "resolved": {
+      "type": "integer",
+      "title": "Resolved"
+     },
+     "escalated": {
+      "type": "integer",
+      "title": "Escalated"
+     },
+     "pending_approvals": {
+      "type": "integer",
+      "title": "Pending Approvals"
+     },
+     "manual_intervention": {
+      "type": "integer",
+      "title": "Manual Intervention"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "remediated": {
+      "type": "integer",
+      "title": "Remediated"
+     },
+     "remediation_success_rate": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Remediation Success Rate"
+     },
+     "real_host_health": {
+      "type": "string",
+      "title": "Real Host Health"
+     },
+     "simulation_health": {
+      "type": "string",
+      "title": "Simulation Health"
+     },
+     "mode": {
+      "type": "string",
+      "title": "Mode"
+     }
+    },
+    "type": "object",
+    "required": [
+     "active",
+     "active_critical",
+     "resolved",
+     "escalated",
+     "pending_approvals",
+     "manual_intervention",
+     "total",
+     "remediated",
+     "real_host_health",
+     "simulation_health",
+     "mode"
+    ],
+    "title": "SummaryOut"
+   },
+   "ThresholdPair": {
+    "properties": {
+     "warning": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 100.0,
+        "exclusiveMinimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Warning"
+     },
+     "critical": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 100.0,
+        "exclusiveMinimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Critical"
+     }
+    },
+    "type": "object",
+    "title": "ThresholdPair"
+   },
+   "ThresholdUpdate": {
+    "properties": {
+     "cpu": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ThresholdPair"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "memory": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ThresholdPair"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "disk": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ThresholdPair"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "ThresholdUpdate"
+   },
+   "ValidationError": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "type": "array",
+      "title": "Location"
+     },
+     "msg": {
+      "type": "string",
+      "title": "Message"
+     },
+     "type": {
+      "type": "string",
+      "title": "Error Type"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "ctx": {
+      "type": "object",
+      "title": "Context"
+     }
+    },
+    "type": "object",
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError"
+   },
+   "VerificationOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "incident_id": {
+      "type": "string",
+      "title": "Incident Id"
+     },
+     "execution_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Execution Id"
+     },
+     "attempt": {
+      "type": "integer",
+      "title": "Attempt"
+     },
+     "before": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Before"
+     },
+     "after": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "After"
+     },
+     "criteria": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Criteria"
+     },
+     "result": {
+      "type": "string",
+      "title": "Result"
+     },
+     "failure_reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Failure Reason"
+     },
+     "created_at": {
+      "type": "string",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "incident_id",
+     "attempt",
+     "result",
+     "created_at"
+    ],
+    "title": "VerificationOut"
+   }
+  }
+ }
+}
