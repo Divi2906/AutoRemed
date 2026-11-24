@@ -298,6 +298,11 @@ class RemediationOrchestrator:
                 return
             before = self.verifier.capture()
             result = self._execute(inc, decision, attempt, exec_id)
+            # Safety-blocked executions must never be retried; escalate immediately.
+            if result.status == "blocked":
+                self._escalate(incident_id, rid,
+                               f"execution blocked by safety guard on attempt {attempt}: {result.error}")
+                return
             if self._sleep():
                 return
             ver = self.verifier.verify(inc, attempt, exec_id, before)
@@ -365,7 +370,7 @@ class RemediationOrchestrator:
         except SafetyViolation as exc:
             self.activity.log("safety_violation", str(exc), incident_id=inc["id"], action="execute",
                               status="blocked", attempt=attempt, environment=inc["environment"])
-            result = ExecutionResult("failed", "execution blocked by safety guard", error=str(exc))
+            result = ExecutionResult("blocked", "execution blocked by safety guard", error=str(exc))
         except Exception as exc:  # executor bugs/exceptions are recorded, never swallowed
             logger.exception("executor raised for %s attempt %s", inc["id"], attempt)
             result = ExecutionResult("failed", "executor raised an exception", error=f"{type(exc).__name__}: {exc}")
@@ -373,9 +378,12 @@ class RemediationOrchestrator:
         self.db.execute(
             "UPDATE executions SET status=?, ended_at=?, duration_ms=?, message=?, error=? WHERE id=?",
             (result.status, ended, duration_ms(started, ended), result.message, result.error, exec_id))
+        event = ("execution_completed" if result.status == "success"
+                 else "execution_blocked" if result.status == "blocked"
+                 else "execution_failed")
         self.activity.log(
-            "execution_completed" if result.status == "success" else "execution_failed",
-            f"Attempt {attempt}: `{decision.strategy.name}` {'executed' if result.status == 'success' else 'FAILED'}"
+            event,
+            f"Attempt {attempt}: `{decision.strategy.name}` {'executed' if result.status == 'success' else 'BLOCKED' if result.status == 'blocked' else 'FAILED'}"
             f" - {result.message}" + (f" [{result.error}]" if result.error else ""),
             incident_id=inc["id"], action=decision.strategy.action, status=result.status, attempt=attempt,
             environment=inc["environment"], details={"execution_id": exec_id, "error": result.error})

@@ -183,7 +183,33 @@ CREATE TABLE demo_runs (
 );
 """
 
-MIGRATIONS: list[tuple[int, str]] = [(1, SCHEMA_V1)]
+# Migration v2: allow 'blocked' as an execution status for safety-guard rejections.
+# SQLite does not support ALTER COLUMN, so we recreate the executions table with the
+# updated CHECK constraint and copy existing rows in one atomic transaction.
+SCHEMA_V2 = """
+CREATE TABLE executions_new (
+    id TEXT PRIMARY KEY,
+    incident_id TEXT NOT NULL REFERENCES incidents(id),
+    remediation_id TEXT REFERENCES remediations(id),
+    environment TEXT NOT NULL,
+    action TEXT NOT NULL,
+    strategy TEXT NOT NULL,
+    executor TEXT NOT NULL,
+    attempt INTEGER NOT NULL CHECK (attempt BETWEEN 1 AND 3),
+    status TEXT NOT NULL CHECK (status IN ('running','success','failed','blocked')),
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    duration_ms INTEGER,
+    message TEXT,
+    error TEXT,
+    UNIQUE (incident_id, attempt)
+);
+INSERT INTO executions_new SELECT * FROM executions;
+DROP TABLE executions;
+ALTER TABLE executions_new RENAME TO executions
+"""
+
+MIGRATIONS: list[tuple[int, str]] = [(1, SCHEMA_V1), (2, SCHEMA_V2)]
 
 
 class Database:
@@ -228,14 +254,23 @@ class Database:
 
     # ------------------------------------------------------------------ schema
     def migrate(self) -> None:
-        with self.tx() as c:
-            current = c.execute("PRAGMA user_version").fetchone()[0]
-            for version, sql in MIGRATIONS:
-                if version > current:
-                    for stmt in _split_statements(sql):
-                        c.execute(stmt)
-                    c.execute(f"PRAGMA user_version={version}")
-                    logger.info("applied schema migration v%s", version)
+        conn = self.conn()
+        with self._write_lock:
+            conn.execute("PRAGMA foreign_keys=OFF")
+            try:
+                with self.tx() as c:
+                    current = c.execute("PRAGMA user_version").fetchone()[0]
+                    for version, sql in MIGRATIONS:
+                        if version > current:
+                            for stmt in _split_statements(sql):
+                                c.execute(stmt)
+                            c.execute(f"PRAGMA user_version={version}")
+                            logger.info("applied schema migration v%s", version)
+                    violations = c.execute("PRAGMA foreign_key_check").fetchall()
+                    if violations:
+                        raise RuntimeError(f"foreign key violations after migration: {violations}")
+            finally:
+                conn.execute("PRAGMA foreign_keys=ON")
 
     # ------------------------------------------------------------------ transactions
     @contextmanager

@@ -148,3 +148,72 @@ def test_no_shell_or_destructive_calls_in_source():
     banned = re.compile(r"\b(subprocess|os\.system|os\.remove|os\.kill|shutil\.rmtree|\.terminate\(|psutil\.Process)\b")
     offenders = [str(p) for p in root.rglob("*.py") if banned.search(p.read_text())]
     assert offenders == []
+
+
+# ------------------------------------------------------------------ safety-blocked execution
+def test_safety_blocked_execution_is_not_retried(container):
+    """A SafetyViolation on attempt 1 must escalate immediately; no second attempt is made."""
+    from app.core.errors import SafetyViolation
+
+    c = container
+
+    def _raise_safety(req):
+        raise SafetyViolation("test: refusing to act outside sandbox")
+
+    c.executors.register(TestExecutor(outcomes=[_raise_safety]))
+    c.executors.default = "test"
+    c.demo.inject("cpu")
+    inc = c.repos.list_incidents()[0][0]
+
+    # Exactly one execution row was created (the blocked attempt).
+    execs = executions_of(c, inc["id"])
+    assert len(execs) == 1, f"expected 1 execution row, got {len(execs)}"
+    assert execs[0]["status"] == "blocked"
+    assert "safety" in (execs[0]["error"] or "").lower() or "safety" in (execs[0]["message"] or "").lower()
+
+    # Incident escalated, not left for retry.
+    assert inc["status"] == "escalated"
+    assert inc["manual_intervention_required"] is True
+    assert inc["attempts_made"] == 1  # one attempt was consumed, not three
+
+    # Activity log must contain both safety_violation and execution_blocked events.
+    events = [r["event_type"] for r in c.activity.query(incident_id=inc["id"], limit=500)[0]]
+    assert "safety_violation" in events
+    assert "execution_blocked" in events
+    assert "incident_escalated" in events
+
+    # No further attempts if orchestrator or monitor runs again.
+    c.orchestrator.run_workflow(inc["id"])
+    c.orchestrator.dispatch_pending()
+    assert len(executions_of(c, inc["id"])) == 1
+
+
+def test_safety_blocked_on_second_attempt_does_not_retry_further(container):
+    """Ordinary failure on attempt 1, SafetyViolation on attempt 2 → escalate after 2 attempts, no third."""
+    from app.core.errors import SafetyViolation
+
+    c = container
+
+    def _raise_safety(req):
+        raise SafetyViolation("test: sandbox boundary exceeded on retry")
+
+    # Attempt 1: ordinary executor failure (no state change → verifier sees not_recovered → retry).
+    # Attempt 2: SafetyViolation → must escalate immediately.
+    c.executors.register(TestExecutor(outcomes=["fail", _raise_safety]))
+    c.executors.default = "test"
+    c.demo.inject("cpu")
+    inc = c.repos.list_incidents()[0][0]
+
+    execs = sorted(executions_of(c, inc["id"]), key=lambda e: e["attempt"])
+    assert len(execs) == 2, f"expected 2 execution rows, got {len(execs)}"
+    assert execs[0]["status"] == "failed"   # ordinary failure
+    assert execs[1]["status"] == "blocked"  # safety block
+
+    assert inc["status"] == "escalated"
+    assert inc["attempts_made"] == 2        # stopped at 2, not 3
+    assert inc["manual_intervention_required"] is True
+
+    events = [r["event_type"] for r in c.activity.query(incident_id=inc["id"], limit=500)[0]]
+    assert "safety_violation" in events
+    assert "execution_blocked" in events
+    assert "incident_escalated" in events
