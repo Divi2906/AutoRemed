@@ -1,0 +1,13 @@
+﻿global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: "autoremed-test-app"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["autoremed-test-target:8000"]
+
+  - job_name: "autoremed-backend"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["autoremed-app:8000"]

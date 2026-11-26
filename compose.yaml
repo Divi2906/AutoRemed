@@ -1,0 +1,25 @@
+
+
+services:
+  autoremed:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: autoremed-app
+    ports:
+      - "8000:8000"
+    environment:
+      AUTOREMED_DB_PATH: /data/autoremed.db
+      AUTOREMED_AUTOSTART_MONITORING: "true"
+      AUTOREMED_LOG_LEVEL: INFO
+      AUTOREMED_HOST_DISK_PATH: /data
+      AUTOREMED_MODEL_PATH: /models/strategy_ranker.joblib
+    volumes:
+      - autoremed_data:/data
+      - ./backend/data/models:/models:ro
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  autoremed_data:

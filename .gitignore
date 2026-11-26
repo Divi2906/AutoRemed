@@ -20,7 +20,10 @@ build/
 *.db
 *.db-wal
 *.db-shm
-backend/data/
+backend/data/*
+!backend/data/models/
+backend/data/models/*
+!backend/data/models/.gitkeep
 
 # Logs and caches
 *.log

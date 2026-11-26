@@ -87,6 +87,26 @@ class ConfigService:
     # ------------------------------------------------------------------ mode
     def mode(self) -> str:
         return self.get("mode")
+        # ------------------------------------------------------------------ ranker
+    def set_ranker(self, ranker: str) -> str:
+        if ranker not in ("rule_based", "ml"):
+            raise ValidationFailed(
+                "ranker must be either 'rule_based' or 'ml'"
+            )
+
+        old = self.get("ranker")
+
+        self._set("ranker", ranker)
+
+        self.activity.log(
+            "config_changed",
+            f"Strategy ranker changed: {old} -> {ranker}",
+            action="set_ranker",
+            status="ok",
+            details={"old": old, "new": ranker},
+        )
+
+        return ranker
 
     def set_mode(self, mode: str) -> str:
         if mode not in MODES:

@@ -19,7 +19,17 @@ def assert_error(r, status, code):
 def test_health(client):
     j = client.get("/api/health").json()
     assert j["status"] == "ok" and j["database"] == "ok" and j["mode"] == "autonomous"
+    
 
+def test_prometheus_metrics_endpoint(client):
+    response = client.get("/metrics")
+
+    assert response.status_code == 200
+    assert "text/plain" in response.headers["content-type"]
+    assert "autoremed_monitoring_running" in response.text
+    assert "autoremed_incidents_total" in response.text
+    assert "<!doctype html>" not in response.text.lower()
+    
 
 def test_metrics_current_keeps_environments_separate_and_labelled(client, container):
     container.sim.inject_fault("cpu", 55)

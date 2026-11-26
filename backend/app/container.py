@@ -1,4 +1,6 @@
+
 """Dependency container: wires every service together (modular monolith)."""
+
 from __future__ import annotations
 
 import logging
@@ -12,7 +14,12 @@ from .incidents.engine import IncidentEngine
 from .incidents.repository import Repositories
 from .monitoring.monitor import Monitor
 from .monitoring.sources import MetricSource, RealHostSource, SimulatedSource
-from .remediation.executors import ExecutorRegistry, RealExecutor, SimulationExecutor, TestExecutor
+from .remediation.executors import (
+    ExecutorRegistry,
+    RealExecutor,
+    SimulationExecutor,
+    TestExecutor,
+)
 from .remediation.orchestrator import RemediationOrchestrator
 from .remediation.strategies import StrategySelector, build_ranker
 from .remediation.verifier import HealthVerifier
@@ -23,7 +30,12 @@ logger = logging.getLogger("autoremed")
 
 
 class Container:
-    def __init__(self, settings: Settings, *, real_source: MetricSource | None = None):
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        real_source: MetricSource | None = None,
+    ):
         self.settings = settings
         self.db = Database(settings.db_path)
         self.activity = ActivityLog(self.db)
@@ -31,40 +43,96 @@ class Container:
         self.repos = Repositories(self.db)
         self.sim = SimulationState(self.db)
 
-        # Two strictly separate metric environments. `real_source` is injectable for tests only.
+        # Two strictly separate metric environments.
+        # real_source is injectable for tests only.
         self.sources = {
             "real_host": real_source or RealHostSource(settings.host_disk_path),
             "simulation": SimulatedSource(self.sim),
         }
-        self.diagnosis = DiagnosisEngine()
-        self.engine = IncidentEngine(self.db, self.repos, self.config, self.activity, self.diagnosis, self.sim)
 
-        ranker, note = build_ranker(self.config.get("ranker"))
+        self.diagnosis = DiagnosisEngine()
+
+        self.engine = IncidentEngine(
+            self.db,
+            self.repos,
+            self.config,
+            self.activity,
+            self.diagnosis,
+            self.sim,
+        )
+
+        # Load the configured strategy ranker.
+        # If ML loading fails, build_ranker safely falls back to rules.
+        ranker, note = build_ranker(
+            self.config.get("ranker"),
+            model_path=settings.model_path,
+        )
+
         self.selector = StrategySelector(ranker, note)
+
+        # Remediation executors remain simulation-only by default.
         self.executors = ExecutorRegistry("simulation")
         self.executors.register(SimulationExecutor(self.sim))
         self.executors.register(TestExecutor())
         self.executors.register(RealExecutor())
-        self.verifier = HealthVerifier(self.db, self.config, self.activity, self.sim.snapshot)
+
+        self.verifier = HealthVerifier(
+            self.db,
+            self.config,
+            self.activity,
+            self.sim.snapshot,
+        )
+
         self.orchestrator = RemediationOrchestrator(
-            self.db, self.repos, self.config, self.activity, self.engine, self.selector, self.executors,
-            self.verifier, self.sim, settings)
+            self.db,
+            self.repos,
+            self.config,
+            self.activity,
+            self.engine,
+            self.selector,
+            self.executors,
+            self.verifier,
+            self.sim,
+            settings,
+        )
+
         self.engine.on_created = self.orchestrator.handle_new_incident
 
         self.monitor = Monitor(
-            self.db, self.config, self.activity, self.sources, self.engine.process_snapshot,
-            after_tick=self.orchestrator.dispatch_pending, retention=settings.metrics_retention)
-        self.demo = DemoService(self.db, self.repos, self.activity, self.sim, self.monitor, self.orchestrator)
+            self.db,
+            self.config,
+            self.activity,
+            self.sources,
+            self.engine.process_snapshot,
+            after_tick=self.orchestrator.dispatch_pending,
+            retention=settings.metrics_retention,
+        )
+
+        self.demo = DemoService(
+            self.db,
+            self.repos,
+            self.activity,
+            self.sim,
+            self.monitor,
+            self.orchestrator,
+        )
+
         self._started = False
 
     def start(self) -> None:
         if self._started:
             return
+
         self._started = True
+
         resumed = self.orchestrator.resume_after_restart()
         if resumed:
             logger.info("resumed %s workflow(s) after restart", resumed)
-        if self.settings.autostart_monitoring and self.config.monitoring()["enabled"]:
+
+        if (
+            self.settings.autostart_monitoring
+            and self.config.monitoring()["enabled"]
+        ):
             self.monitor.start()
 
     def shutdown(self) -> None:

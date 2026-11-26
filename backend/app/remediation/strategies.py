@@ -1,17 +1,23 @@
-"""Remediation strategy catalog, ML-compatible ranker interface, and explainable selector.
 
-There is NO trained model in this project (no meaningful historical dataset exists). The only
-shipped ranker is ``RuleBasedRanker``; ``MLStrategyRanker`` is an interface placeholder that
-refuses to load without a real model artifact, and ``build_ranker`` falls back to the rule-based
-ranker while saying so. Nothing here fabricates predictions, accuracy or training metrics.
-"""
+
+"""Remediation strategy catalog, ML ranker, and explainable selector."""
+
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-SAFE_NOTE = "Simulated action: affects only AutoRemed's simulation state, never the real host."
+import joblib
+import pandas as pd
+
+SAFE_NOTE = (
+    "Simulated action: affects only AutoRemed's simulation state, "
+    "never the real host."
+)
+
+logger = logging.getLogger("autoremed")
 
 
 @dataclass(frozen=True)
@@ -21,76 +27,107 @@ class Strategy:
     action: str
     description: str
     expected_outcome: str
-    # Metric incidents: percentage points removed by the default simulation model.
-    # Service incidents: ordering only (less invasive = lower).
     power: float
     fixes_states: tuple[str, ...] = ()
-    kind: str = "corrective"  # or "diagnostic"
+    kind: str = "corrective"
 
 
 CATALOG: dict[str, tuple[Strategy, ...]] = {
     "high_cpu": (
-        Strategy("process_analysis", "high_cpu", "analyze_processes",
-                 "Profile the simulated process table to find CPU hogs (diagnostic, minimal relief).",
-                 "Identifies heavy processes; small CPU reduction", 10, kind="diagnostic"),
-        Strategy("workload_reduction", "high_cpu", "throttle_workload",
-                 "Throttle simulated low-priority workloads to shed CPU load.",
-                 "Moderate CPU reduction without stopping services", 35),
-        Strategy("cpu_optimization_simulation", "high_cpu", "optimize_cpu",
-                 "Rebalance and optimise simulated workloads for maximum CPU relief.",
-                 "Large CPU reduction", 55),
+        Strategy(
+            "process_analysis", "high_cpu", "analyze_processes",
+            "Profile the simulated process table to find CPU hogs.",
+            "Identifies heavy processes; small CPU reduction",
+            10, kind="diagnostic",
+        ),
+        Strategy(
+            "workload_reduction", "high_cpu", "throttle_workload",
+            "Throttle simulated low-priority workloads.",
+            "Moderate CPU reduction", 35,
+        ),
+        Strategy(
+            "cpu_optimization_simulation", "high_cpu", "optimize_cpu",
+            "Rebalance simulated workloads.",
+            "Large CPU reduction", 55,
+        ),
     ),
     "high_memory": (
-        Strategy("memory_analysis", "high_memory", "analyze_memory",
-                 "Inspect simulated memory consumers (diagnostic, minimal relief).",
-                 "Identifies leaking consumers; small memory reduction", 8, kind="diagnostic"),
-        Strategy("cache_optimization", "high_memory", "optimize_cache",
-                 "Trim simulated in-memory caches.",
-                 "Moderate memory reduction", 30),
-        Strategy("memory_recovery_simulation", "high_memory", "recover_memory",
-                 "Reclaim simulated memory from idle workloads.",
-                 "Large memory reduction", 50),
+        Strategy(
+            "memory_analysis", "high_memory", "analyze_memory",
+            "Inspect simulated memory consumers.",
+            "Identifies memory consumers; small memory reduction",
+            8, kind="diagnostic",
+        ),
+        Strategy(
+            "cache_optimization", "high_memory", "optimize_cache",
+            "Trim simulated in-memory caches.",
+            "Moderate memory reduction", 30,
+        ),
+        Strategy(
+            "memory_recovery_simulation", "high_memory", "recover_memory",
+            "Reclaim simulated memory from idle workloads.",
+            "Large memory reduction", 50,
+        ),
     ),
     "high_disk": (
-        Strategy("disk_analysis", "high_disk", "analyze_disk",
-                 "Scan the simulated volume for large directories (diagnostic, minimal relief).",
-                 "Identifies space consumers; small disk reduction", 5, kind="diagnostic"),
-        Strategy("temp_file_cleanup_simulation", "high_disk", "cleanup_temp_files",
-                 "Delete simulated temporary files.",
-                 "Moderate disk reduction", 20),
-        Strategy("cache_cleanup_simulation", "high_disk", "cleanup_cache",
-                 "Purge simulated application caches.",
-                 "Large disk reduction", 30),
+        Strategy(
+            "disk_analysis", "high_disk", "analyze_disk",
+            "Scan the simulated volume for large directories.",
+            "Identifies space consumers; small disk reduction",
+            5, kind="diagnostic",
+        ),
+        Strategy(
+            "temp_file_cleanup_simulation", "high_disk",
+            "cleanup_temp_files",
+            "Delete simulated temporary files.",
+            "Moderate disk reduction", 20,
+        ),
+        Strategy(
+            "cache_cleanup_simulation", "high_disk", "cleanup_cache",
+            "Purge simulated application caches.",
+            "Large disk reduction", 30,
+        ),
     ),
     "service_failure": (
-        Strategy("service_health_check", "service_failure", "check_service_health",
-                 "Run the simulated service health check; recovers a merely degraded service.",
-                 "Service returns to running if only degraded", 1, ("degraded",), "diagnostic"),
-        Strategy("service_recovery_simulation", "service_failure", "recover_service",
-                 "Run the simulated recovery procedure for the service.",
-                 "Service returns to running", 2, ("degraded", "failed")),
-        Strategy("service_restart_simulation", "service_failure", "restart_service",
-                 "Restart the simulated service.",
-                 "Service returns to running", 3, ("degraded", "failed")),
+        Strategy(
+            "service_health_check", "service_failure",
+            "check_service_health",
+            "Run the simulated service health check.",
+            "Service returns to running if merely degraded",
+            1, ("degraded",), "diagnostic",
+        ),
+        Strategy(
+            "service_recovery_simulation", "service_failure",
+            "recover_service",
+            "Run the simulated service recovery procedure.",
+            "Service returns to running", 2,
+            ("degraded", "failed"),
+        ),
+        Strategy(
+            "service_restart_simulation", "service_failure",
+            "restart_service",
+            "Restart the simulated service.",
+            "Service returns to running", 3,
+            ("degraded", "failed"),
+        ),
     ),
 }
 
 
 def get_strategy(name: str) -> Strategy:
     for group in CATALOG.values():
-        for s in group:
-            if s.name == name:
-                return s
+        for strategy in group:
+            if strategy.name == name:
+                return strategy
     raise KeyError(name)
 
 
 @dataclass
 class AttemptRecord:
-    """What happened on a previous attempt (input to the next selection)."""
     attempt: int
     strategy: str
-    execution_status: str            # success | failed
-    verification_result: str | None  # recovered | not_recovered | None
+    execution_status: str
+    verification_result: str | None
     failure_reason: str | None = None
     before: dict[str, Any] | None = None
     after: dict[str, Any] | None = None
@@ -102,7 +139,7 @@ class SelectionContext:
     severity: str
     environment: str
     metric: str
-    value: float | str           # current live value (after earlier attempts, if any)
+    value: float | str
     warning_threshold: float | None
     critical_threshold: float | None
     attempt: int
@@ -117,14 +154,14 @@ class RankedStrategy:
 
 
 class StrategyRanker(Protocol):
-    kind: str          # "rule_based" | "ml"
-    trained: bool      # True only if a real trained model is loaded
+    kind: str
+    trained: bool
 
     def rank(self, ctx: SelectionContext) -> list[RankedStrategy]: ...
 
 
 class RuleBasedRanker:
-    """Deterministic ranking. Least-invasive strategy that is expected to be sufficient comes first."""
+    """Deterministic fallback strategy ranker."""
 
     kind = "rule_based"
     trained = False
@@ -132,35 +169,70 @@ class RuleBasedRanker:
     def _needed(self, ctx: SelectionContext) -> float:
         if ctx.metric == "service" or ctx.warning_threshold is None:
             return 0.0
-        # Aim 5 points below the warning threshold so recovery has headroom.
-        return max(0.0, float(ctx.value) - (ctx.warning_threshold - 5.0))
+        return max(
+            0.0,
+            float(ctx.value) - (ctx.warning_threshold - 5.0),
+        )
 
-    def _sufficient(self, s: Strategy, ctx: SelectionContext) -> bool:
+    def _sufficient(self, strategy: Strategy, ctx: SelectionContext) -> bool:
         if ctx.metric == "service":
-            return str(ctx.value) in s.fixes_states
-        return s.power >= self._needed(ctx)
+            return str(ctx.value) in strategy.fixes_states
+        return strategy.power >= self._needed(ctx)
 
     def rank(self, ctx: SelectionContext) -> list[RankedStrategy]:
-        tried = {h.strategy for h in ctx.history}
-        candidates = [s for s in CATALOG[ctx.incident_type] if s.name not in tried]
-        reasons_exhausted = False
-        if not candidates:  # every strategy has been tried: allow a justified repeat (never silent)
-            candidates, reasons_exhausted = list(CATALOG[ctx.incident_type]), True
-        sufficient = sorted([s for s in candidates if self._sufficient(s, ctx)], key=lambda s: s.power)
-        insufficient = sorted([s for s in candidates if not self._sufficient(s, ctx)], key=lambda s: -s.power)
-        need = self._needed(ctx)
-        ranked: list[RankedStrategy] = []
-        for i, s in enumerate(sufficient):
-            why = ("least invasive untried strategy expected to be sufficient"
-                   if i == 0 else "sufficient but more invasive than the preferred option")
+        tried = {record.strategy for record in ctx.history}
+        candidates = [
+            strategy
+            for strategy in CATALOG[ctx.incident_type]
+            if strategy.name not in tried
+        ]
+
+        exhausted = not candidates
+        if exhausted:
+            candidates = list(CATALOG[ctx.incident_type])
+
+        sufficient = sorted(
+            [s for s in candidates if self._sufficient(s, ctx)],
+            key=lambda s: s.power,
+        )
+        insufficient = sorted(
+            [s for s in candidates if not self._sufficient(s, ctx)],
+            key=lambda s: -s.power,
+        )
+
+        needed = self._needed(ctx)
+        ranked = []
+
+        for index, strategy in enumerate(sufficient):
+            reason = (
+                "Least-invasive untried strategy expected to be sufficient"
+                if index == 0
+                else "Sufficient but more invasive than the preferred option"
+            )
             if ctx.metric != "service":
-                why += f" (expected relief ~{s.power:.0f} points vs ~{need:.0f} needed)"
-            ranked.append(RankedStrategy(s, 100.0 - i, why))
-        for i, s in enumerate(insufficient):
-            why = "not expected to be sufficient on its own; ranked by strength"
-            ranked.append(RankedStrategy(s, 50.0 - i, why))
-        if reasons_exhausted and ranked:
-            ranked[0].rationale = "all strategies were already tried; repeating the most promising one: " + ranked[0].rationale
+                reason += (
+                    f"; expected relief {strategy.power:.0f} points "
+                    f"versus approximately {needed:.0f} needed"
+                )
+            ranked.append(
+                RankedStrategy(strategy, 100.0 - index, reason)
+            )
+
+        for index, strategy in enumerate(insufficient):
+            ranked.append(
+                RankedStrategy(
+                    strategy,
+                    50.0 - index,
+                    "Not expected to be sufficient alone; ranked by strength",
+                )
+            )
+
+        if exhausted and ranked:
+            ranked[0].rationale = (
+                "All strategies were tried; repeating the most promising one. "
+                + ranked[0].rationale
+            )
+
         return ranked
 
 
@@ -169,27 +241,163 @@ class ModelUnavailable(RuntimeError):
 
 
 class MLStrategyRanker:
-    """Interface placeholder for a future trained ranker. It cannot be constructed without a model file."""
+    """Ranks catalog strategies using a trained recovery-probability model."""
 
     kind = "ml"
     trained = True
 
+    # This order must match the saved training artifact.
+    FEATURES = [
+        "incident_type",
+        "severity",
+        "metric",
+        "strategy_kind",
+        "value",
+        "warning_threshold",
+        "critical_threshold",
+        "strategy_power",
+    ]
+
     def __init__(self, model_path: str | None):
-        if not model_path or not os.path.exists(model_path):
-            raise ModelUnavailable("no trained model artifact available (no training dataset exists yet)")
-        raise ModelUnavailable("model loading is not implemented: no model has ever been trained")
+        if not model_path or not os.path.isfile(model_path):
+            raise ModelUnavailable(
+                f"model artifact not found: {model_path}"
+            )
 
-    def rank(self, ctx: SelectionContext) -> list[RankedStrategy]:  # pragma: no cover
-        raise ModelUnavailable
+        try:
+            artifact = joblib.load(model_path)
+
+            if not isinstance(artifact, dict):
+                raise ModelUnavailable("invalid model artifact format")
+
+            self.model = artifact["model"]
+            self.features = artifact["features"]
+
+            if self.features != self.FEATURES:
+                raise ModelUnavailable(
+                    "model feature schema does not match ranker"
+                )
+
+            if not hasattr(self.model, "predict_proba"):
+                raise ModelUnavailable(
+                    "loaded model does not support probability predictions"
+                )
+
+        except ModelUnavailable:
+            raise
+        except Exception as exc:
+            raise ModelUnavailable(
+                f"model could not be loaded: {exc}"
+            ) from exc
+
+    def _features(
+        self,
+        strategy: Strategy,
+        ctx: SelectionContext,
+    ) -> dict[str, Any]:
+        if ctx.metric == "service":
+            raw_value = str(ctx.value)
+            value = (
+                1.0 if raw_value == "degraded"
+                else 2.0 if raw_value == "failed"
+                else 0.0
+            )
+        else:
+            value = float(ctx.value)
+
+        return {
+            "incident_type": ctx.incident_type,
+            "severity": ctx.severity,
+            "metric": ctx.metric,
+            "strategy_kind": strategy.kind,
+            "value": value,
+            "warning_threshold": (
+                float(ctx.warning_threshold)
+                if ctx.warning_threshold is not None else float("nan")
+            ),
+            "critical_threshold": (
+                float(ctx.critical_threshold)
+                if ctx.critical_threshold is not None else float("nan")
+            ),
+            "strategy_power": float(strategy.power),
+        }
+
+    def rank(self, ctx: SelectionContext) -> list[RankedStrategy]:
+        candidates = list(CATALOG[ctx.incident_type])
+
+        tried = {record.strategy for record in ctx.history}
+        untried = [
+            strategy for strategy in candidates
+            if strategy.name not in tried
+        ]
+
+        exhausted = not untried
+        if not exhausted:
+            candidates = untried
+
+        try:
+            frame = pd.DataFrame(
+                [
+                    self._features(strategy, ctx)
+                    for strategy in candidates
+                ],
+                columns=self.features,
+            )
+
+            probabilities = self.model.predict_proba(frame)
+            classes = list(self.model.classes_)
+
+            if 1 not in classes:
+                raise ModelUnavailable(
+                    "trained model has no recovered class"
+                )
+
+            positive_index = classes.index(1)
+
+            scored = []
+            for strategy, probability in zip(candidates, probabilities):
+                score = float(probability[positive_index]) * 100.0
+                rationale = (
+                    f"ML model estimates {score:.1f}% probability "
+                    "of verified recovery"
+                )
+                if exhausted:
+                    rationale += (
+                        "; all strategies were tried, so repetition "
+                        "is permitted"
+                    )
+
+                scored.append(
+                    RankedStrategy(strategy, score, rationale)
+                )
+
+            return sorted(
+                scored,
+                key=lambda item: item.score,
+                reverse=True,
+            )
+
+        except Exception as exc:
+            logger.exception("ML strategy prediction failed")
+            raise ModelUnavailable(
+                f"ML prediction failed: {exc}"
+            ) from exc
 
 
-def build_ranker(kind: str = "rule_based", model_path: str | None = None) -> tuple[StrategyRanker, str | None]:
-    """Return (ranker, note). Falls back to the rule-based ranker, explicitly noting why."""
+def build_ranker(
+    kind: str = "rule_based",
+    model_path: str | None = None,
+) -> tuple[StrategyRanker, str | None]:
+    """Build ML ranker or explicitly fall back to deterministic rules."""
     if kind == "ml":
         try:
             return MLStrategyRanker(model_path), None
         except ModelUnavailable as exc:
-            return RuleBasedRanker(), f"ML ranker unavailable ({exc}); using rule-based ranker"
+            return (
+                RuleBasedRanker(),
+                f"ML ranker unavailable ({exc}); using rule-based ranker",
+            )
+
     return RuleBasedRanker(), None
 
 
@@ -205,51 +413,134 @@ class StrategyDecision:
     ranker: str
 
 
-def _describe_prev(h: AttemptRecord) -> str:
-    if h.execution_status == "failed":
-        return f"attempt {h.attempt} `{h.strategy}` failed during execution ({h.failure_reason or 'no detail'})"
-    return (f"attempt {h.attempt} `{h.strategy}` executed but verification did not confirm recovery "
-            f"({h.failure_reason or 'issue remained'})")
+def _describe_prev(record: AttemptRecord) -> str:
+    if record.execution_status == "failed":
+        return (
+            f"attempt {record.attempt} `{record.strategy}` failed "
+            f"during execution ({record.failure_reason or 'no detail'})"
+        )
+
+    return (
+        f"attempt {record.attempt} `{record.strategy}` executed "
+        "but verification did not confirm recovery "
+        f"({record.failure_reason or 'issue remained'})"
+    )
 
 
 class StrategySelector:
-    def __init__(self, ranker: StrategyRanker, note: str | None = None):
+    def __init__(
+        self,
+        ranker: StrategyRanker,
+        note: str | None = None,
+    ):
         self.ranker = ranker
         self.note = note
 
     def select(self, ctx: SelectionContext) -> StrategyDecision:
-        ranked = self.ranker.rank(ctx)
+        try:
+            ranked = self.ranker.rank(ctx)
+        except Exception as exc:
+            logger.exception("Ranker failed; using rule-based fallback")
+            self.ranker = RuleBasedRanker()
+            self.note = (
+                f"ML prediction failed ({exc}); "
+                "using rule-based fallback"
+            )
+            ranked = self.ranker.rank(ctx)
+
         if not ranked:
-            raise RuntimeError(f"no strategies available for {ctx.incident_type}")
+            raise RuntimeError(
+                f"no strategies available for {ctx.incident_type}"
+            )
+
         top = ranked[0]
-        s = top.strategy
-        label = {"high_cpu": "CPU utilisation", "high_memory": "memory utilisation",
-                 "high_disk": "disk utilisation", "service_failure": "service state"}[ctx.incident_type]
+        strategy = top.strategy
+
+        labels = {
+            "high_cpu": "CPU utilisation",
+            "high_memory": "memory utilisation",
+            "high_disk": "disk utilisation",
+            "service_failure": "service state",
+        }
+
         if ctx.metric == "service":
-            cond = f"the service is '{ctx.value}' (expected 'running')"
+            condition = (
+                f"the service is '{ctx.value}' "
+                "(expected 'running')"
+            )
         else:
-            thr = ctx.critical_threshold if ctx.severity == "critical" else ctx.warning_threshold
-            cond = (f"{label} ({float(ctx.value):.1f}%) exceeded the {ctx.severity} threshold ({thr:.1f}%)")
-        parts = [f"Selected `{s.name}` because {cond}"]
+            threshold = (
+                ctx.critical_threshold
+                if ctx.severity == "critical"
+                else ctx.warning_threshold
+            )
+            condition = (
+                f"{labels[ctx.incident_type]} ({float(ctx.value):.1f}%) "
+                f"exceeded the {ctx.severity} threshold "
+                f"({threshold:.1f}%)"
+            )
+
+        parts = [
+            f"Selected `{strategy.name}` because {condition}",
+            top.rationale,
+        ]
+
         if ctx.history:
-            parts.append("the previous " + ("attempts failed" if len(ctx.history) > 1 else "attempt failed"))
-            parts.append(f"this strategy has not yet been attempted" if all(h.strategy != s.name for h in ctx.history)
-                         else "all strategies were exhausted")
-        parts.append(top.rationale)
-        reason = ", and ".join(parts[:-1]) + f"; {parts[-1]}." if len(parts) > 1 else parts[0] + "."
-        prev = [{"attempt": h.attempt, "strategy": h.strategy, "execution_status": h.execution_status,
-                 "verification_result": h.verification_result, "failure_reason": h.failure_reason}
-                for h in ctx.history]
+            parts.insert(
+                1,
+                "previous attempts did not confirm recovery",
+            )
+
+        reason = "; ".join(parts) + "."
+
+        previous = [
+            {
+                "attempt": record.attempt,
+                "strategy": record.strategy,
+                "execution_status": record.execution_status,
+                "verification_result": record.verification_result,
+                "failure_reason": record.failure_reason,
+            }
+            for record in ctx.history
+        ]
+
         if ctx.history:
-            reason += " Not repeated: " + "; ".join(_describe_prev(h) for h in ctx.history) + "."
+            reason += (
+                " Previous outcomes: "
+                + "; ".join(
+                    _describe_prev(record)
+                    for record in ctx.history
+                )
+                + "."
+            )
+
         return StrategyDecision(
-            strategy=s, reason=reason, expected_outcome=s.expected_outcome, attempt=ctx.attempt,
-            context={"incident_type": ctx.incident_type, "severity": ctx.severity, "environment": ctx.environment,
-                     "metric": ctx.metric, "value": ctx.value, "warning_threshold": ctx.warning_threshold,
-                     "critical_threshold": ctx.critical_threshold, "note": SAFE_NOTE},
-            previous_outcomes=prev,
-            alternatives=[{"strategy": r.strategy.name, "score": r.score, "rationale": r.rationale}
-                          for r in ranked[1:]],
-            ranker=("rule_based (deterministic rules; no trained model)" if not self.ranker.trained
-                    else "ml (trained model)") + (f" - {self.note}" if self.note else ""),
+            strategy=strategy,
+            reason=reason,
+            expected_outcome=strategy.expected_outcome,
+            attempt=ctx.attempt,
+            context={
+                "incident_type": ctx.incident_type,
+                "severity": ctx.severity,
+                "environment": ctx.environment,
+                "metric": ctx.metric,
+                "value": ctx.value,
+                "warning_threshold": ctx.warning_threshold,
+                "critical_threshold": ctx.critical_threshold,
+                "note": SAFE_NOTE,
+            },
+            previous_outcomes=previous,
+            alternatives=[
+                {
+                    "strategy": item.strategy.name,
+                    "score": item.score,
+                    "rationale": item.rationale,
+                }
+                for item in ranked[1:]
+            ],
+            ranker=(
+                "ml (trained model)"
+                if self.ranker.trained
+                else "rule_based (deterministic rules; no trained model)"
+            ) + (f" - {self.note}" if self.note else ""),
         )
